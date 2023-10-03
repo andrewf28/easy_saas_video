@@ -5,9 +5,6 @@ from botocore.exceptions import ClientError
 import uuid
 import re
 
-BUCKET_NAME = "<YOUR-BUCKET-NAME>"
-REGION_NAME = "<YOUR-REGION-NAME>"
-
 def create_presigned_url(bucket_name, object_name, expiration=600):
     # Generate a presigned URL for the S3 object
     s3_client = boto3.client('s3', region_name=REGION_NAME, config=boto3.session.Config(signature_version='s3v4'))
@@ -28,15 +25,18 @@ def create_presigned_url(bucket_name, object_name, expiration=600):
 
 def lambda_handler(event, context):
     params = event['queryStringParameters']
-
+    memberstackID = params['memID']
+    folder = "input"
+    
     base_file_name = re.sub(r'[^\w\-.]', '-', params['fileName']) # Sanitize the filename by replacing non-alphanumeric characters, excluding "-" and ".", with "-"
     
-    object_key = f"{base_file_name}"
+    extension = ".csv"
+    object_key = f"{folder}/{memberstackID}/{base_file_name}{extension}"
 
     # Check if the file exists in the S3 bucket, and if so, add UUID to file name
     s3_client = boto3.client('s3', region_name=REGION_NAME)
     try:
-        s3_client.head_object(Bucket=BUCKET_NAME, Key=object_key)
+        s3_client.head_object(Bucket='icepick', Key=object_key)
         # If no exception, the object exists, so add UUID to the file name
         base_file_name = f"{uuid.uuid4()}_{base_file_name}"
         object_key = f"{folder}/{memberstackID}/{base_file_name}{extension}"
@@ -49,7 +49,7 @@ def lambda_handler(event, context):
                 'body': json.dumps({'message': 'Internal server error'})
             }
 
-    presigned_url, final_object_name = create_presigned_url(BUCKET_NAME, object_key)
+    presigned_url, final_object_name = create_presigned_url('icepick', object_key)
     
     if presigned_url == "Error":
         return {
